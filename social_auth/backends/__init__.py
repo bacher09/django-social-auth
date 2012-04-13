@@ -559,14 +559,17 @@ class ConsumerBasedOAuth(BaseOAuth):
             raise AuthTokenError('Incorrect tokens')
 
         try:
-            access_token = self.access_token(token)
+            response = self.get_response(token)
         except HTTPError, e:
             if e.code == 400:
                 raise AuthCanceled(self)
             else:
                 raise
+        else:
+            access_token = self.access_token(response)
+            
 
-        data = self.user_data(access_token)
+        data = self.user_data(access_token, response)
         if data is not None:
             data['access_token'] = access_token.to_string()
 
@@ -610,11 +613,15 @@ class ConsumerBasedOAuth(BaseOAuth):
         """Executes request and fetchs service response"""
         response = urlopen(request.to_url())
         return '\n'.join(response.readlines())
-
-    def access_token(self, token):
-        """Return request for access token value"""
+    
+    def get_response(self, token):
         request = self.oauth_request(token, self.ACCESS_TOKEN_URL)
-        return Token.from_string(self.fetch_response(request))
+        return self.fetch_response(request)
+        
+
+    def access_token(self, response):
+        """Return request for access token value"""
+        return Token.from_string(response)
 
     def user_data(self, access_token, response = None):
         """Loads user data from service"""
