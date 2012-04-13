@@ -65,14 +65,11 @@ class FlickrAuth(ConsumerBasedOAuth):
     def user_data(self, access_token, response = None):
         """Loads user data from service"""
         params = parse_qs(response)
-        user_nsid = get_param(params, 'user_nsid')
-        fullname = get_param(params, 'fullname')
-        username = get_param(params, 'username')
         
         return {
-            'id': user_nsid,
-            'username': username,
-            'fullname': fullname,
+            'id': get_param(params, 'user_nsid'),
+            'username': get_param(params, 'fullname'),
+            'fullname': get_param(params, 'username'),
         }
 
 
