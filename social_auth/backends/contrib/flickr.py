@@ -45,6 +45,12 @@ class FlickrBackend(OAuthBackend):
                 'first_name': response.get('fullname')}
 
 
+def get_param(params, val):
+    try:
+        return params[val][0]
+    except (TypeError, KeyError):
+        return None
+    
 class FlickrAuth(ConsumerBasedOAuth):
     """Flickr OAuth authentication mechanism"""
     AUTHORIZATION_URL = FLICKR_AUTHORIZATION_URL
@@ -55,30 +61,18 @@ class FlickrAuth(ConsumerBasedOAuth):
     SETTINGS_KEY_NAME = 'FLICKR_APP_ID'
     SETTINGS_SECRET_NAME = 'FLICKR_API_SECRET'
 
-    def access_token(self, token):
-        """Return request for access token value"""
-        # Flickr is a bit different - it passes user information along with
-        # the access token, so temporarily store it to view the user_data
-        # method easy access later in the flow!
-        request = self.oauth_request(token, self.ACCESS_TOKEN_URL)
-        response = self.fetch_response(request)
-        token = Token.from_string(response)
-        params = parse_qs(response)
 
-        token.user_nsid = params['user_nsid'][0] if 'user_nsid' in params \
-                                                 else None
-        token.fullname = params['fullname'][0] if 'fullname' in params \
-                                               else None
-        token.username = params['username'][0] if 'username' in params \
-                                               else None
-        return token
-
-    def user_data(self, access_token):
+    def user_data(self, access_token, response = None):
         """Loads user data from service"""
+        params = parse_qs(response)
+        user_nsid = get_param(params, 'user_nsid')
+        fullname = get_param(params, 'fullname')
+        username = get_param(params, 'username')
+        
         return {
-            'id': access_token.user_nsid,
-            'username': access_token.username,
-            'fullname': access_token.fullname,
+            'id': user_nsid,
+            'username': username,
+            'fullname': fullname,
         }
 
 
