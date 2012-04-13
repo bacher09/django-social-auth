@@ -188,7 +188,7 @@ class GoogleOAuth2(BaseOAuth2):
     def get_scope(self):
         return GOOGLE_OAUTH2_SCOPE + setting('GOOGLE_OAUTH_EXTRA_SCOPE', [])
 
-    def user_data(self, access_token):
+    def user_data(self, access_token, response = None):
         """Return user data from Google API"""
         return googleapis_profile(GOOGLEAPIS_PROFILE, access_token)
 
