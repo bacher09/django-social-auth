@@ -623,7 +623,7 @@ class ConsumerBasedOAuth(BaseOAuth):
         """Return request for access token value"""
         return Token.from_string(response)
 
-    def user_data(self, access_token, response = None):
+    def user_data(self, access_token, *args, **kwargs):
         """Loads user data from service"""
         raise NotImplementedError('Implement in subclass')
 
@@ -705,8 +705,8 @@ class BaseOAuth2(BaseOAuth):
             error = response.get('error_description') or response.get('error')
             raise AuthFailed(self, error)
         else:
-            response.update(self.user_data(response['access_token'], response)
-                                                                        or {})
+            data = self.user_data(response['access_token'], response)
+            response.update(data or {})
             kwargs.update({
                 'auth': self,
                 'response': response,

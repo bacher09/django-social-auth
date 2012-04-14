@@ -62,7 +62,7 @@ class FlickrAuth(ConsumerBasedOAuth):
     SETTINGS_SECRET_NAME = 'FLICKR_API_SECRET'
 
 
-    def user_data(self, access_token, response = None):
+    def user_data(self, access_token, response, *args, **kwargs):
         """Loads user data from service"""
         params = parse_qs(response)
         

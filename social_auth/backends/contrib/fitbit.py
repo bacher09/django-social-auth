@@ -19,6 +19,7 @@ from oauth2 import Token
 
 from social_auth.utils import setting
 from social_auth.backends import ConsumerBasedOAuth, OAuthBackend, USERNAME
+from social_auth.backends.flickr import get_param
 
 
 # Fitbit configuration
@@ -53,31 +54,15 @@ class FitbitAuth(ConsumerBasedOAuth):
     AUTH_BACKEND = FitbitBackend
     SETTINGS_KEY_NAME = 'FITBIT_CONSUMER_KEY'
     SETTINGS_SECRET_NAME = 'FITBIT_CONSUMER_SECRET'
-
-    def access_token(self, token):
-        """Return request for access token value"""
-        # Fitbit is a bit different - it passes user information along with
-        # the access token, so temporarily store it to vie the user_data
-        # method easy access later in the flow!
-        request = self.oauth_request(token, self.ACCESS_TOKEN_URL)
-        response = self.fetch_response(request)
-        token = Token.from_string(response)
-        params = parse_qs(response)
-
-        token.user_nsid = params['user_nsid'][0] if 'user_nsid' in params \
-                                                 else None
-        token.fullname = params['fullname'][0] if 'fullname' in params \
-                                               else None
-        token.username = params['username'][0] if 'username' in params \
-                                               else None
-        return token
-
-    def user_data(self, access_token):
+    
+    
+    def user_data(self, access_token, response, *args, **kwargs):
         """Loads user data from service"""
+        params = parse_qs(response)
         return {
-            'id': access_token.user_nsid,
-            'username': access_token.username,
-            'fullname': access_token.fullname,
+            'id': get_param(params, 'user_nsid'),
+            'username': get_param(params, 'fullname'),
+            'fullname': get_param(params, 'username'),
         }
 
 
