@@ -27,6 +27,7 @@ FITBIT_SERVER = 'https://api.fitbit.com'
 FITBIT_REQUEST_TOKEN_URL = '%s/oauth/request_token' % FITBIT_SERVER
 FITBIT_AUTHORIZATION_URL = '%s/oauth/authorize' % FITBIT_SERVER
 FITBIT_ACCESS_TOKEN_URL = '%s/oauth/access_token' % FITBIT_SERVER
+FITBIT_USERINFO = 'http://api.fitbit.com/1/user/-/profile.json'
 EXPIRES_NAME = setting('SOCIAL_AUTH_EXPIRATION', 'expires')
 
 
@@ -37,6 +38,13 @@ class FitbitBackend(OAuthBackend):
     EXTRA_DATA = [('id', 'id'),
                   ('username', 'username'),
                   ('expires', EXPIRES_NAME)]
+
+    def get_user_id(self, details, response):
+        """
+        Fitbit doesn't provide user data, it must be requested to its API:
+            https://wiki.fitbit.com/display/API/API-Get-User-Info
+        """
+        return response['id']
 
     def get_user_details(self, response):
         """Return user details from Fitbit account"""

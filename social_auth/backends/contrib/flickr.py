@@ -72,6 +72,11 @@ class FlickrAuth(ConsumerBasedOAuth):
             'fullname': get_param(params, 'username'),
         }
 
+    def auth_extra_arguments(self):
+        params = super(FlickrAuth, self).auth_extra_arguments() or {}
+        params['perms'] = 'read'
+        return params
+
 
 # Backend definition
 BACKENDS = {
