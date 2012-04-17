@@ -155,13 +155,10 @@ Configuration
     FLICKR_API_SECRET            = ''
     INSTAGRAM_CLIENT_ID          = ''
     INSTAGRAM_CLIENT_SECRET      = ''
-<<<<<<< HEAD
     VK_APP_ID                    = ''
     VK_API_SECRET                = ''
-=======
     BITBUCKET_CONSUMER_KEY       = ''
     BITBUCKET_CONSUMER_SECRET    = ''
->>>>>>> e6f68e15bed8143255ee0237cdd4fa00ea9c7af4
 
 - Setup login URLs::
 
@@ -1015,8 +1012,8 @@ Join to `django-social-auth discussion list`_ and bring any questions or suggest
 that would improve this application. Convore_ discussion group is deprecated since
 the service is going to be shut down on April 1st.
 
-Sout users
-^^^^^^^^^^
+South users
+^^^^^^^^^^^
 South_ users should add this rule to enable migrations::
 
     try:
