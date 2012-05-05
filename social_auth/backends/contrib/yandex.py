@@ -15,8 +15,6 @@ from urllib import urlencode, unquote
 from urllib2 import urlopen
 from urlparse import urlparse
 
-from django.conf import settings
-
 from social_auth.backends import OpenIDBackend, OpenIdAuth, USERNAME,\
     OAuthBackend, BaseOAuth2
 
@@ -89,7 +87,7 @@ class YaruBackend(OAuthBackend):
 
         """Return user details from Yandex account"""
         return { USERNAME: get_username_from_url(response.get('links')),
-                 'email':  response.get('email') or '',
+                 'email':  response.get('email',''),
                  'first_name': first_name, 'last_name': last_name,
                  }
 
@@ -102,7 +100,7 @@ class YaruAuth(BaseOAuth2):
     SERVER_URL = YANDEX_SERVER
     SETTINGS_KEY_NAME = 'YANDEX_APP_ID'
     SETTINGS_SECRET_NAME = 'YANDEX_API_SECRET'
-
+    
     def get_api_url(self):
         return 'https://api-yaru.yandex.ru/me/'
 
@@ -131,13 +129,13 @@ class YandexOAuth2(YaruAuth):
     AUTH_BACKEND = YandexOAuth2Backend
 
     def get_api_url(self):
-        return settings.YANDEX_OAUTH2_API_URL
+        return setting('YANDEX_OAUTH2_API_URL')
 
     def user_data(self, access_token, response, *args, **kwargs):
         reply = super(YandexOAuth2, self).user_data(access_token, response, args, kwargs)
 
         if reply:
-            if isinstance(reply, list):
+            if isinstance(reply, list) and len(reply) >= 1:
                 reply = reply[0]
 
             if 'links' in reply:
