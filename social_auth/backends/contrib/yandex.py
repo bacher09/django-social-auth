@@ -1,24 +1,34 @@
 """
-Yandex OAuth support.
+Yandex OpenID and OAuth2 support.
 
+This contribution adds support for Yandex.ru OpenID service in the form
+openid.yandex.ru/user. Username is retrieved from the identity url.
+
+If username is not specified, OpenID 2.0 url used for authentication.
 """
-from urllib import urlencode, urlopen
-from urlparse import urlparse
-
+import logging
 from django.utils import simplejson
 
+logger = logging.getLogger(__name__)
+
+from urllib import urlencode, unquote
+from urllib2 import urlopen
+from urlparse import urlparse
+
+from django.conf import settings
+
+from social_auth.backends import OpenIDBackend, OpenIdAuth, USERNAME,\
+    OAuthBackend, BaseOAuth2
+
 from social_auth.utils import setting
-from social_auth.backends import BaseOAuth2, OAuthBackend, OpenIdAuth, \
-                                 OpenIDBackend, USERNAME
 
-
-# Vkontakte configuration
+# Yandex configuration
 YANDEX_AUTHORIZATION_URL = 'https://oauth.yandex.ru/authorize'
 YANDEX_ACCESS_TOKEN_URL = 'https://oauth.yandex.ru/token'
-YANDEX_USER_DATA_URL = 'https://api.vk.com/method/users.get'
-YANDEX_USER_ID_URL = 'https://api-yaru.yandex.ru/me/'
 YANDEX_SERVER = 'oauth.yandex.ru'
+
 YANDEX_OPENID_URL = 'http://openid.yandex.ru'
+YANDEX_USER_FIELD = 'openid_ya_user'
 
 
 def get_username_from_url(links):
@@ -34,16 +44,31 @@ class YandexBackend(OpenIDBackend):
     name = 'yandex'
 
     def get_user_id(self, details, response):
-        #validate_whitelists(self, details['email'])
-        return details['email']
+        return details['email'] or response.identity_url
+
+    def get_user_details(self, response):
+        """Generate username from identity url"""
+        values = super(YandexBackend, self).get_user_details(response)
+        values[USERNAME] = values.get(USERNAME) or\
+                           urlparse.urlsplit(response.identity_url)\
+                           .path.strip('/')
+
+        values['email'] = values.get('email') or ''
+
+        return values
+
 
 class YandexAuth(OpenIdAuth):
     """Yandex OpenID authentication"""
     AUTH_BACKEND = YandexBackend
 
     def openid_url(self):
-        """Return Google OpenID service url"""
-        return YANDEX_OPENID_URL
+        """Returns Yandex authentication URL"""
+        if YANDEX_USER_FIELD not in self.data:
+            return YANDEX_OPENID_URL
+        else:
+            return YANDEX_OPENID_URL + '/' +  self.data[YANDEX_USER_FIELD]
+
 
 class YaruBackend(OAuthBackend):
     """Yandex OAuth authentication backend"""
@@ -54,40 +79,79 @@ class YaruBackend(OAuthBackend):
     ]
 
     def get_user_details(self, response):
-        """Return user details from Vkontakte account"""
+        name = unquote(response['name'])
+        last_name = ''
+
+        if ' ' in name:
+            last_name, first_name = name.split(' ')
+        else:
+            first_name = name
+
+        """Return user details from Yandex account"""
         return { USERNAME: get_username_from_url(response.get('links')),
-                 'email':  response.get('email'),
-                 'first_name': response.get('name'),
-               } 
+                 'email':  response.get('email') or '',
+                 'first_name': first_name, 'last_name': last_name,
+                 }
 
 
 class YaruAuth(BaseOAuth2):
-    """Yandex OAuth mechanism"""
+    """Yandex Ya.ru OAuth mechanism"""
     AUTHORIZATION_URL = YANDEX_AUTHORIZATION_URL
     ACCESS_TOKEN_URL = YANDEX_ACCESS_TOKEN_URL
+    AUTH_BACKEND = YaruBackend
     SERVER_URL = YANDEX_SERVER
-    AUTH_BACKEND = YaruBackend 
     SETTINGS_KEY_NAME = 'YANDEX_APP_ID'
     SETTINGS_SECRET_NAME = 'YANDEX_API_SECRET'
+
+    def get_api_url(self):
+        return 'https://api-yaru.yandex.ru/me/'
 
     def user_data(self, access_token, response, *args, **kwargs):
         """Loads user data from service"""
         params = {'oauth_token': access_token,
                   'format': 'json',
-                 }
-        headers = {'Content-Type': 'application/x-yaru+json; type=person',
-                    'Accept': 'application/x-yaru+json'}
+                  'text': 1,
+                  }
 
-        url = YANDEX_USER_ID_URL + '?' + urlencode(params)
+        url = self.get_api_url() + '?' + urlencode(params)
         try:
             return simplejson.load(urlopen(url))
         except (ValueError, IndexError):
+            logger.error('Could not load data from Yandex.', exc_info=True, extra=dict(data=params))
             return None
 
 
+class YandexOAuth2Backend(YaruBackend):
+    """Legacy Yandex OAuth2 authentication backend"""
+    name = 'yandex-oauth2'
+
+
+class YandexOAuth2(YaruAuth):
+    """Yandex Ya.ru/Moi Krug OAuth mechanism"""
+    AUTH_BACKEND = YandexOAuth2Backend
+
+    def get_api_url(self):
+        return settings.YANDEX_OAUTH2_API_URL
+
+    def user_data(self, access_token, response, *args, **kwargs):
+        reply = super(YandexOAuth2, self).user_data(access_token, response, args, kwargs)
+
+        if reply:
+            if isinstance(reply, list):
+                reply = reply[0]
+
+            if 'links' in reply:
+                userpic = reply['links'].get('avatar')
+            elif 'avatar' in reply:
+                userpic = reply['avatar'].get('Portrait')
+
+            reply.update({"id":reply["id"].split("/")[-1], "access_token": access_token, "userpic": userpic or ''})
+
+        return reply
 
 # Backend definition
 BACKENDS = {
     'yandex': YandexAuth,
     'yaru': YaruAuth,
+    'yandex-oauth2': YandexOAuth2
 }
