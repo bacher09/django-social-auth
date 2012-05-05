@@ -8,7 +8,6 @@ www.vkontakte.ru. Username is retrieved from the identity returned by server.
 import logging
 logger = logging.getLogger(__name__)
 
-from django.conf import settings
 from django.contrib.auth import authenticate
 from django.utils import simplejson
 
@@ -30,8 +29,8 @@ VKONTAKTE_API_URL        = 'https://api.vkontakte.ru/method/'
 VKONTAKTE_SERVER_API_URL = 'http://api.vkontakte.ru/api.php'
 VKONTAKTE_API_VERSION    = '3.0'
 
-USE_APP_AUTH = getattr(settings, 'VKONTAKTE_APP_AUTH', False)
-LOCAL_HTML = getattr(settings, 'VKONTAKTE_LOCAL_HTML', 'vkontakte.html')
+USE_APP_AUTH = setting('VKONTAKTE_APP_AUTH', False)
+LOCAL_HTML = setting('VKONTAKTE_LOCAL_HTML', 'vkontakte.html')
 
 class VKontakteBackend(SocialAuthBackend):
     """VKontakte OpenAPI authentication backend"""
@@ -52,7 +51,7 @@ class VKontakteBackend(SocialAuthBackend):
 class VKontakteAuth(BaseAuth):
     """VKontakte OpenAPI authorization mechanism"""
     AUTH_BACKEND = VKontakteBackend
-    APP_ID = settings.VKONTAKTE_APP_ID
+    APP_ID = setting('VKONTAKTE_APP_ID')
 
     def auth_html(self):
         """Returns local VK authentication page, not necessary for VK to authenticate """
@@ -76,7 +75,7 @@ class VKontakteAuth(BaseAuth):
         cookie_dict = dict(item.split('=') for item in self.request.COOKIES[app_cookie].split('&'))
         check_str = ''.join([item + '=' + cookie_dict[item] for item in ['expire', 'mid', 'secret', 'sid']])
 
-        hash = md5(check_str + settings.VKONTAKTE_APP_SECRET).hexdigest()
+        hash = md5(check_str + setting('VKONTAKTE_APP_SECRET')).hexdigest()
 
         if hash != cookie_dict['sig'] or int(cookie_dict['expire']) < time() :
             raise ValueError('VKontakte authentication failed: invalid hash')
@@ -123,13 +122,7 @@ class VKontakteOAuth2(BaseOAuth2):
     SETTINGS_SECRET_NAME = 'VK_API_SECRET'
     # Look at http://vk.com/developers.php?oid=-1&p=%D0%9F%D1%80%D0%B0%D0%B2%D0%B0_%D0%B4%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%B0_%D0%BF%D1%80%D0%B8%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D0%B9
     SCOPE_VAR_NAME = 'VK_EXTRA_SCOPE'
-
-    def get_scope(self):
-        name = VKontakteOAuth2.SCOPE_VAR_NAME if hasattr(settings, VKontakteOAuth2.SCOPE_VAR_NAME)\
-        else 'VKONTAKTE_OAUTH2_EXTRA_SCOPE'
-
-        return setting(name, [])
-
+    
     def user_data(self, access_token, response, *args, **kwargs):
         """Loads user data from service"""
         fields = ','.join(VK_DEFAULT_DATA + setting('VK_EXTRA_DATA',[]))
@@ -192,8 +185,9 @@ class VKontakteAppAuth(VKontakteOAuth2):
 
         # Verify signature, if present
         if auth_key:
-            check_key = md5(self.request.REQUEST.get('api_id') + '_' + self.request.REQUEST.get('viewer_id') + '_' +\
-                            USE_APP_AUTH['key']).hexdigest()
+            check_key = md5('_'.join([self.request.REQUEST.get('api_id'),
+                                      self.request.REQUEST.get('viewer_id'),
+                                      USE_APP_AUTH['key']])).hexdigest()
             if check_key != auth_key:
                 raise ValueError('VKontakte authentication failed: invalid auth key')
 
@@ -210,6 +204,11 @@ class VKontakteAppAuth(VKontakteOAuth2):
 
         return (True, authenticate(**{'response': data, self.AUTH_BACKEND.name: True}))
 
+def _api_get_val_fun(name, conf):
+    if USE_APP_AUTH:
+        return USE_APP_AUTH.get(name)
+    else:
+        return setting(conf)
 
 def vkontakte_api(method, data):
     """ Calls VKontakte OpenAPI method
@@ -221,15 +220,15 @@ def vkontakte_api(method, data):
     if not 'access_token' in data:
         if not 'v' in data:
             data['v'] = VKONTAKTE_API_VERSION
-
+        
         if not 'api_id' in data:
-            data['api_id'] = USE_APP_AUTH.get('id') if USE_APP_AUTH else settings.VKONTAKTE_APP_ID
+            data['api_id'] = _api_get_val_fun('id','VKONTAKTE_APP_ID')
 
         data['method'] = method
         data['format'] = 'json'
 
         url = VKONTAKTE_SERVER_API_URL
-        secret = USE_APP_AUTH.get('key') if USE_APP_AUTH else settings.VKONTAKTE_APP_SECRET
+        secret = _api_get_val_fun('key','VKONTAKTE_APP_SECRET')
 
         param_list = sorted(list(item + '=' + data[item] for item in data))
         data['sig'] = md5(''.join(param_list) + secret).hexdigest()

@@ -79,7 +79,7 @@ AUTHENTICATION_BACKENDS = (
     'social_auth.backends.contrib.flickr.FlickrBackend',
     'social_auth.backends.contrib.instagram.InstagramBackend',
     'social_auth.backends.contrib.github.GithubBackend',
-    'social_auth.backends.contrib.vkontakte.VkontakteBackend',
+    'social_auth.backends.contrib.vkontakte.VKontakteOAuth2Backend',
     'social_auth.backends.contrib.yandex.YandexBackend',
     'social_auth.backends.contrib.yandex.YaruBackend',
     'social_auth.backends.OpenIDBackend',
